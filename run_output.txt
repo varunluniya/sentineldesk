@@ -1,0 +1,48 @@
+==============================================================================
+DECISION TRACE (the structured policy every ticket is evaluated against):
+
+Ticket Escalation Decision Framework:
+1. Ticket age > 48 hours => Escalate (SLA breach risk).
+2. Customer tier = premium => Escalate (contractual priority).
+3. Ticket text indicates a genuine legal threat (e.g. mentions of suing,
+   lawyers, attorneys, legal action being taken AGAINST the company) =>
+   Escalate (legal exposure). A passing mention of "legal" that is not a
+   threat (e.g. referencing the company's own legal department by name,
+   or an unrelated past legal interaction) does NOT by itself escalate.
+4. Refund amount requested > $5000 => Escalate (high financial exposure).
+5. Edge case rule: if a ticket sits right at a numeric boundary (ticket age
+   very close to 48h, refund very close to $5000) apply the rule literally
+   and precisely -- do not soften thresholds "to be safe," since an
+   inconsistently-applied threshold is worse than a strict one: it makes
+   the system's behavior unpredictable to the team relying on it.
+
+==============================================================================
+
+--- Fixed decision trace (contextual legal-threat detection) ---
+
+[T-101 (clear escalation)]
+  Escalate: True
+  Reason:   Escalate: refund requested ($8,000) exceeds the $5,000 threshold.
+
+[T-102 (clear non-escalation)]
+  Escalate: False
+  Reason:   No escalation: ticket age, tier, refund amount, and text all fall within normal-handling bounds; no rule was triggered.
+
+[T-103 (edge case: SHOULD escalate)]
+  Escalate: True
+  Reason:   Escalate: ticket text indicates a genuine legal threat.
+
+[T-104 (edge case: should NOT escalate)]
+  Escalate: False
+  Reason:   No escalation: ticket age, tier, refund amount, and text all fall within normal-handling bounds; no rule was triggered.
+
+==============================================================================
+BUG DEMONSTRATION: naive substring match on the word 'legal'
+(shows why contextual detection was necessary for T-104)
+==============================================================================
+
+[T-104 (edge case: should NOT escalate)] under NAIVE keyword matching:
+  Escalate: True  <-- WRONG, this is a false positive
+  Reason:   Escalate: ticket text contains the word 'legal'.
+
+The naive version escalates T-104 purely because the word 'legal' appears anywhere in the text, even in a harmless, unrelated mention. The fixed version in decision_trace.py checks for actual threat language (sue, lawyer, attorney, legal action, etc.) instead of a bare substring match, which is what correctly keeps T-104 from escalating while still correctly escalating T-103's real threat.
