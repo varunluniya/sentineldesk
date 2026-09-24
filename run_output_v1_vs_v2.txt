@@ -1,0 +1,28 @@
+case                              truth  v1    v2    v2 evidence / suppressed
+lawyer, casual                    Y      Y     Y     lawyer: 'my lawyer'
+sue                               Y      Y     Y     sue: 'sue'
+court                             Y      Y     Y     court: 'See you in court'
+legal action                      Y      Y     Y     legal action/notice: 'legal action'
+legal notice (India)              Y      n✗    Y     legal action/notice: 'legal notice'
+consumer forum (India)            Y      n✗    Y     consumer forum: 'consumer forum'
+advocate (India)                  Y      n✗    Y     lawyer: 'My advocate'; lawyer: 'advocate will'
+ombudsman                         Y      n✗    Y     ombudsman/small claims: 'ombudsman'
+regulator                         Y      n✗    Y     regulator: 'complaint with the RBI'
+FIR                               Y      n✗    Y     file a case: 'Lodging an FIR'
+incidental 'legal'                n      n     n     
+person named Sue                  n      Y✗    n     'Sue' looks like a person's name
+negated                           n      Y✗    n     'sue' is negated
+food court                        n      Y✗    n     
+negated lawyers                   n      n     n     
+service complaint, not legal      n      n     n     
+benign                            n      n     n     
+'legal' as adjective              n      n     n     
+routine legal dept                n      n     n     
+question about legality           n      n     n     
+
+v1: 11/20 correct (6 missed threats, 3 false escalations)
+v2: 20/20 correct
+
+Held-out set (never used for tuning): v1 5/10, v2 8/10
+  v2 still wrong: 'regulator, passive voice': Complaint registered with the IRDAI, reference attached.
+  v2 still wrong: 'third-party lawyer': My brother is a lawyer and says this is fine.

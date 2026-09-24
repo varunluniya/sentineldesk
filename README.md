@@ -1,10 +1,57 @@
 # SentinelDesk
 
+_Ticket escalation you can defend: literal policy rules, legal-threat intent (not keywords), customer contact memory, and precedents learned from agent corrections._
+
+[![ci](https://github.com/varunluniya/sentineldesk/actions/workflows/ci.yml/badge.svg)](https://github.com/varunluniya/sentineldesk/actions/workflows/ci.yml)
+
+## What's new in v2: an intelligent, deployable service
+
+| Layer | In SentinelDesk |
+|---|---|
+| **Retrieval** | Escalation policy. Every fired rule cites its section |
+| **Context** | Customer's contacts in the last 7 days, tier, ticket age |
+| **Memory** | Every decision keyed by customer, agent overrides, precedents |
+| **Feedback** | Agent corrections of the legal call become precedents (they can add an escalation, never remove one). Override rate per rule |
+
+| | v1 regex | v2 |
+|---|---|---|
+| 20-text development set | 11/20 | **20/20** |
+| 10-text held-out set (written after tuning) | 5/10 | **8/10** (misses reported in FRAMEWORK.md) |
+| "I will send you a legal notice" / "consumer forum" / "ombudsman" / "my advocate" | missed | escalated |
+| "Sue from billing was great" / "I'm not going to sue" / "food court" | escalated | not escalated, with the reason shown |
+| Third ticket from one customer in 7 days | not escalated | escalated (repeat contact) |
+
+Full framework write-up: [FRAMEWORK.md](FRAMEWORK.md).
+
+## Run it
+
+```bash
+pip install -r requirements-dev.txt
+uvicorn app:app --reload        # http://127.0.0.1:8000/docs
+python -m pytest -q             # original 7 tests + service/API tests
+python run_evals.py             # 40 cases x 3 runs incl. held-out set
+python compare_v1_v2.py
+```
+
+Docker: `docker build -t sentineldesk . && docker run -p 8000:8000 -v sentineldesk-data:/data sentineldesk` · Render: `render.yaml`.
+Setting `ANTHROPIC_API_KEY` adds a live-model intent check. Disagreements with the rules are escalated and flagged for a human.
+
+```bash
+curl -X POST localhost:8000/evaluate -H 'content-type: application/json' -d '{"ticket_id":"T-9","text":"I will send you a legal notice","age_hours":3,"customer_id":"C-42"}'
+curl -X POST localhost:8000/override -H 'content-type: application/json' -d '{"decision_id":"<id>","should_escalate":true,"legal_threat":true}'
+```
+
+---
+
+## The original engine (v1)
+
+The v1 demo still runs unchanged; the service wraps it.
+
 A ticket-escalation decision engine that makes a support team's informal
 escalation judgment explicit, testable, and versioned — instead of
 living only in a senior agent's head.
 
-## The problem
+### The problem
 
 Every support team has an unwritten sense of "this ticket needs to go
 up the chain." In practice that judgment is inconsistent: different
@@ -17,7 +64,7 @@ a person) reason correctly about cases nobody explicitly programmed
 for, rather than a rigid if/else block that only covers what someone
 thought to write down.
 
-## The policy
+### The policy
 
 ```
 1. Ticket age > 48 hours          -> Escalate (SLA breach risk)
@@ -28,7 +75,7 @@ thought to write down.
    not softened -- an inconsistent threshold is worse than a strict one.
 ```
 
-## Running it
+### Running it
 
 ```bash
 pip install pytest        # only needed to run the test suite
@@ -40,7 +87,7 @@ python3 -m pytest -v                                    # 7 tests, all passing
 
 Sample output is captured in `run_output.txt`.
 
-## A real bug found and fixed while building this
+### A real bug found and fixed while building this
 
 The escalation-relevant part of a ticket is whether it contains a
 **genuine legal threat** — not whether it contains the word "legal" at
@@ -64,7 +111,7 @@ in the code specifically to demonstrate why it's wrong (it flags a
 harmless ticket that references "your legal team" in an unrelated
 context as needing escalation).
 
-## Files
+### Files
 
 - `decision_trace.py` — the policy text plus `evaluate_ticket()`, which
   returns a structured `Decision` (escalate/no, a human-readable reason,

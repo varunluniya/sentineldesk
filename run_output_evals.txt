@@ -1,0 +1,15 @@
+== SentinelDesk eval ==
+cases=40 runs/case=3 accuracy=95.0% consistency=100.0%
+  boundary                     acc=100.0% cons=100.0% n=4
+  held_out                     acc=80.0% cons=100.0% n=10
+  precedent                    acc=100.0% cons=100.0% n=1
+  repeat                       acc=100.0% cons=100.0% n=1
+  threat                       acc=100.0% cons=100.0% n=20
+  v1_tickets                   acc=100.0% cons=100.0% n=4
+  FAIL heldout-08 regulator, passive voice run0: expected=True got=False
+  FAIL heldout-08 regulator, passive voice run1: expected=True got=False
+  FAIL heldout-08 regulator, passive voice run2: expected=True got=False
+  FAIL heldout-09 third-party lawyer run0: expected=False got=True
+  FAIL heldout-09 third-party lawyer run1: expected=False got=True
+  FAIL heldout-09 third-party lawyer run2: expected=False got=True
+GATE: PASS
