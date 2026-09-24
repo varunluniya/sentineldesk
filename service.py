@@ -48,10 +48,11 @@ class SentinelDeskService:
         self.kb = kb or KnowledgeBase.from_dir(HERE / "knowledge")
         self.llm = llm or LLMClient()
 
-    def recent_contacts(self, customer_id: str) -> int:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=REPEAT_WINDOW_DAYS)
+    def recent_contacts(self, customer_id: str, now: datetime | None = None) -> int:
+        now = now or datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=REPEAT_WINDOW_DAYS)
         return sum(1 for d in self.memory.history(f"customer:{customer_id}", limit=100)
-                   if datetime.fromisoformat(d["ts"]) >= cutoff)
+                   if cutoff <= datetime.fromisoformat(d["ts"]) <= now)
 
     def _precedent(self, text: str) -> dict | None:
         toks = set(tokenize(text))
@@ -73,7 +74,8 @@ class SentinelDeskService:
         return r.get("threat")
 
     # -- decision -----------------------------------------------------------------------
-    def evaluate(self, t: Ticket, customer_id: str | None = None) -> dict:
+    def evaluate(self, t: Ticket, customer_id: str | None = None, now: datetime | None = None) -> dict:
+        """`now` is only for replaying history (seed scripts); live calls use the clock."""
         trace = Trace()
         fired: list[tuple[str, str]] = []
         if t.age_hours > AGE_LIMIT_H:
@@ -97,7 +99,7 @@ class SentinelDeskService:
             elif not precedent["threat"] and legal:
                 needs_check = True
 
-        prior = self.recent_contacts(customer_id) if customer_id else 0
+        prior = self.recent_contacts(customer_id, now) if customer_id else 0
         if customer_id and prior + 1 >= REPEAT_CONTACTS:
             fired.append(("repeat", f"contact #{prior + 1} from this customer within {REPEAT_WINDOW_DAYS} days"))
 
@@ -120,7 +122,8 @@ class SentinelDeskService:
                "legal_threat": rule_threat.as_dict()}
         did = self.memory.record_decision(SYSTEM, f"customer:{customer_id}" if customer_id else t.ticket_id,
                                           {"text": t.text, "age_hours": t.age_hours, "tier": t.customer_tier,
-                                           "refund": t.refund_requested}, out)
+                                           "refund": t.refund_requested}, out,
+                                          ts=now.isoformat() if now else None)
         return {"decision_id": did, **out, "trace": trace.as_dict()}
 
     # -- feedback --------------------------------------------------------------------------

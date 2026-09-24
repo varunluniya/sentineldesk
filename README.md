@@ -41,6 +41,17 @@ curl -X POST localhost:8000/evaluate -H 'content-type: application/json' -d '{"t
 curl -X POST localhost:8000/override -H 'content-type: application/json' -d '{"decision_id":"<id>","should_escalate":true,"legal_threat":true}'
 ```
 
+## Demo data
+
+`python seed.py` fills `data/sentineldesk.db` with synthetic history so every endpoint returns something meaningful on first run: About 500 tickets from 160 customers over 60 days, replayed so repeat-contact history is real, agent reviews and corrections, and the precedents they created.
+
+```bash
+python seed.py            # create data/sentineldesk.db
+python seed.py --reset    # rebuild it from scratch
+```
+
+The Docker image seeds `/data` on first boot (set `GEN4_SEED=0` to start empty). All of it is synthetic: no real customers, patients, tickets or model outputs. `GET /health` shows the dataset's counts.
+
 ---
 
 ## The original engine (v1)
