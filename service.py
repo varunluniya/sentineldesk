@@ -143,13 +143,30 @@ class SentinelDeskService:
             learned.append("legal-threat precedent stored")
         return {"learned": learned, "override_rates": self.override_rates()}
 
+    LEARN_KEY = "sentineldesk_overrides"
+    LEARN_GRACE_DAYS = 1
+
     def override_rates(self) -> dict:
-        done = self.memory.decisions(system=SYSTEM, with_outcome=True)
+        """Incremental-loading fix: used to re-pull and re-scan every decision+outcome
+        this system had ever logged on every call -- override() calls this
+        after every single agent verdict, so it was the hottest full-rescan
+        in this repo (the classic full-rescan mistake). Now pulls only outcomes that
+        arrived since the last watermark and merges their deltas into
+        running per-rule totals plus a running missed-escalations total."""
+        new = fb.new_rows_since(self.memory, SYSTEM, self.LEARN_KEY, grace_days=self.LEARN_GRACE_DAYS)
+        deltas = {}
+        for rule in RULE_HEADINGS:
+            fired = [d for d in new if rule in d["output"]["rules_fired"]]
+            wrong = sum(1 for d in fired if not d["outcome"]["should_escalate"])
+            deltas[f"{rule}:fired"] = len(fired)
+            deltas[f"{rule}:wrong"] = wrong
+        deltas["missed"] = sum(1 for d in new if not d["output"]["escalate"] and d["outcome"]["should_escalate"])
+        totals = fb.accumulate(self.memory, self.LEARN_KEY, **deltas)
+        fb.mark_processed(self.memory, self.LEARN_KEY, new)
+
         rates = {}
         for rule in RULE_HEADINGS:
-            fired = [d for d in done if rule in d["output"]["rules_fired"]]
-            wrong = sum(1 for d in fired if not d["outcome"]["should_escalate"])
-            rates[rule] = {"fired": len(fired), "overridden": wrong, "rate": fb.rate(wrong, len(fired))}
-        missed = sum(1 for d in done if not d["output"]["escalate"] and d["outcome"]["should_escalate"])
+            fired_n, wrong_n = totals.get(f"{rule}:fired", 0), totals.get(f"{rule}:wrong", 0)
+            rates[rule] = {"fired": fired_n, "overridden": wrong_n, "rate": fb.rate(wrong_n, fired_n)}
         self.memory.add_fact("model:sentineldesk", "override_rates", rates)
-        return {"per_rule": rates, "missed_escalations": missed}
+        return {"per_rule": rates, "missed_escalations": totals.get("missed", 0)}
